@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>מבזק טלגרם</title>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:light dark;--bg:light-dark(#f2f4f7,#07131c);--card:light-dark(#fff,#0e2130);--ink:light-dark(#111a22,#e8f1f7);--mute:light-dark(#647380,#8fa6b6);--blue:#1b8fd2;--red:#e0262f;--line:light-dark(#e1e6eb,#1b3244);--soft:light-dark(#e9edf1,#13293a)}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Rubik,system-ui,sans-serif}
+button,input{font:inherit;color:inherit}
+header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line)}
+.bar{max-width:760px;margin:auto;display:flex;align-items:center;gap:10px;padding:12px max(3vw,12px) 8px}
+h1{margin:0;font-size:28px;font-weight:800;line-height:1;display:flex;align-items:center;gap:8px}
+h1 i{width:10px;height:10px;border-radius:50%;background:var(--red);animation:p 1.6s infinite}
+@keyframes p{50%{opacity:.25}}@media(prefers-reduced-motion:reduce){h1 i{animation:none}}
+.upd{flex:1;font-size:13px;color:var(--mute);line-height:1.3;text-align:left}
+.ic{width:44px;height:44px;border:0;background:none;border-radius:50%;cursor:pointer;display:grid;place-items:center;color:var(--ink)}
+.ic:hover{background:var(--soft)}.ic svg{width:24px;height:24px}
+.tabs{max-width:760px;margin:0 auto;padding:0 max(3vw,12px) 10px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.tabs button{min-height:42px;border:0;border-radius:10px;background:var(--soft);cursor:pointer;font-weight:500;font-size:15px}
+.tabs button[aria-selected=true]{background:var(--ink);color:var(--card)}
+.search{max-width:760px;margin:0 auto;padding:0 max(3vw,12px) 10px;display:none}
+.search.on{display:block}
+input[type=search],input[type=text],input[type=password]{width:100%;min-height:46px;font-size:16px;border:1.5px solid var(--line);background:var(--card);border-radius:10px;padding:0 12px}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+main{max-width:760px;margin:auto;padding:12px max(3vw,10px) 40px}
+ol{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.card.big{border:2px solid var(--red)}
+.k{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--red);font-weight:700}
+.dots{display:inline-flex;gap:3px}.dots b{width:9px;height:9px;border-radius:50%;background:var(--red)}.dots b.o{background:var(--line)}
+.hl{font-size:18px;font-weight:500;line-height:1.45;margin:4px 0}
+.full{white-space:pre-line;overflow-wrap:anywhere;margin:4px 0;font-size:15.5px}
+.md{color:var(--mute);font-style:italic}
+.ft{display:flex;align-items:center;gap:4px;color:var(--mute);font-size:13px;margin-top:6px}
+.src{flex:1;line-height:1.35}
+.ft time{white-space:nowrap}
+.sm{width:40px;height:40px;border:0;background:none;border-radius:50%;cursor:pointer;color:var(--mute);display:grid;place-items:center}
+.sm svg{width:20px;height:20px}.sm[aria-pressed=true]{color:var(--blue)}
+.more{border:0;background:none;color:var(--blue);cursor:pointer;padding:6px 0;font-size:14px;font-weight:500}
+.sub{list-style:none;margin:8px 0 0;padding:0;border-top:1px solid var(--line)}
+.sub li{border-bottom:1px solid var(--line);padding:8px 0;font-size:15px}
+.sub b{color:var(--blue);font-weight:700}
+a.go{color:var(--blue);text-decoration:none;font-size:14px;font-weight:500}
+.empty{text-align:center;color:var(--mute);padding:40px 16px}
+dialog{width:min(560px,100vw);max-height:92vh;border:0;border-radius:18px 18px 0 0;padding:0;margin:auto auto 0;background:var(--card);color:var(--ink)}
+dialog::backdrop{background:#0008}
+.dh{position:sticky;top:0;background:var(--card);display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line)}
+.dh h2{margin:0;font-size:20px}
+.db{padding:14px 16px 24px;display:grid;gap:18px}
+.db h3{margin:0 0 6px;font-size:16px}
+.chl{list-style:none;margin:0;padding:0}
+.chl li{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.chl .nm{flex:1;line-height:1.3}.chl small{display:block;color:var(--mute);direction:ltr;text-align:right}
+.sw{position:relative;width:48px;height:28px;flex:none}
+.sw input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+.sw span{position:absolute;inset:0;border-radius:14px;background:var(--line);transition:.2s}
+.sw span::after{content:"";position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:.2s}
+.sw input:checked+span{background:var(--blue)}.sw input:checked+span::after{right:23px}
+.sw input:focus-visible+span{outline:3px solid var(--blue);outline-offset:2px}
+.del{min-height:36px;padding:0 10px;border:1px solid var(--line);background:none;border-radius:8px;cursor:pointer;color:var(--red);font-size:14px}
+.row{display:flex;gap:8px}.row input{flex:1}
+.btn{min-height:46px;padding:0 16px;border:0;border-radius:10px;background:var(--blue);color:#fff;font-weight:500;cursor:pointer;white-space:nowrap}
+.btn.ghost{background:var(--soft);color:var(--ink)}
+.msg{font-size:14px;min-height:1.2em;margin:6px 0 0}.msg.err{color:var(--red)}.msg.ok{color:#1f9d6b}
+.help{font-size:14px;color:var(--mute);margin:0}.help ol{display:block;padding-inline-start:20px;margin:6px 0}.help li{margin:3px 0}
+.help a{color:var(--blue)}
+.tag{font-size:12px;background:var(--soft);border-radius:4px;padding:1px 6px;color:var(--mute)}
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1><i></i>מבזק טלגרם</h1>
+    <span class="upd" id="upd"></span>
+    <button class="ic" id="sBtn" aria-label="חיפוש"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></button>
+    <button class="ic" id="gBtn" aria-label="ניהול ערוצים"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  </div>
+  <div class="search" id="sWrap"><input type="search" id="q" placeholder="חיפוש בידיעות…" aria-label="חיפוש בידיעות"></div>
+  <div class="tabs" role="tablist">
+    <button role="tab" data-t="big" aria-selected="true">ידיעות גדולות</button>
+    <button role="tab" data-t="all" aria-selected="false">כל הידיעות</button>
+    <button role="tab" data-t="saved" aria-selected="false">שמורים</button>
+  </div>
+</header>
+<main><ol id="list"></ol></main>
+
+<dialog id="dlg">
+  <div class="dh"><h2>ניהול ערוצים</h2><button class="ic" id="xBtn" aria-label="סגירה"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <div class="db">
+    <section>
+      <h3>הערוצים שלך</h3>
+      <p class="help">המתג מסתיר או מציג ערוץ רק אצלך. מחיקה מוציאה אותו מהרשימה לגמרי.</p>
+      <ul class="chl" id="chl"></ul>
+    </section>
+    <section>
+      <h3>הוספת ערוץ</h3>
+      <div class="row"><input type="text" id="addU" dir="ltr" placeholder="שם משתמש או קישור t.me" aria-label="שם הערוץ להוספה"><button class="btn" id="addB">הוספה</button></div>
+      <p class="msg" id="addM"></p>
+    </section>
+    <section id="tokS">
+      <h3>מפתח גישה ל־GitHub</h3>
+      <p class="help" id="tokStat"></p>
+      <div class="help" id="tokHelp">כדי להוסיף ולמחוק ערוצים צריך מפתח, פעם אחת בלבד:
+        <ol>
+          <li>פתח את <a id="tokLink" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">דף יצירת המפתח ב־GitHub</a>.</li>
+          <li>ב־<b>Token name</b> כתוב: מבזק. ב־<b>Expiration</b> בחר <b>No expiration</b> או שנה.</li>
+          <li>ב־<b>Repository access</b> בחר <b>Only select repositories</b> ובחר את <b>telegram-news</b>.</li>
+          <li>ב־<b>Permissions</b> הוסף: <b>Contents</b> = Read and write, וגם <b>Actions</b> = Read and write.</li>
+          <li>לחץ <b>Generate token</b>, העתק את המפתח והדבק כאן.</li>
+        </ol></div>
+      <div class="row"><input type="password" id="tok" dir="ltr" placeholder="github_pat_…" aria-label="מפתח גישה"><button class="btn ghost" id="tokB">שמירה</button></div>
+      <p class="msg" id="tokM"></p>
+    </section>
+  </div>
+</dialog>
+
+<script>
+{
+let D=__DATA__;
+const $=id=>document.getElementById(id);
+const esc=t=>String(t).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const st={get(k,f){try{return JSON.parse(localStorage.getItem(k))??f}catch(e){return f}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const REPO=D.repo||(location.hostname.split('.')[0]+'/'+(location.pathname.split('/')[1]||'telegram-news'));
+let tab='big',hidden=new Set(st.get('tn-hidden',[])),saved=st.get('tn-saved',[]),pend=st.get('tn-pending',{add:[],del:[]}),open=new Set();
+const tf=new Intl.DateTimeFormat('he-IL',{timeZone:'Asia/Jerusalem',hour:'2-digit',minute:'2-digit'});
+const df=new Intl.DateTimeFormat('he-IL',{timeZone:'Asia/Jerusalem',weekday:'long',day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'});
+const sameDay=d=>new Date(d).toLocaleDateString('he-IL',{timeZone:'Asia/Jerusalem'})===new Date().toLocaleDateString('he-IL',{timeZone:'Asia/Jerusalem'});
+const when=d=>sameDay(d)?tf.format(new Date(d)):df.format(new Date(d)).replace(/^יום /,'');
+const head=x=>{let s=(x||'').split('\n').map(l=>l.trim()).find(l=>l.replace(/[^\p{L}\p{N}]/gu,'').length>3)||x||'';s=s.split(/(?<=[.!?])\s/)[0];return s.length>160?s.slice(0,157)+'…':s};
+const ico={save:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18l-6-4-6 4z"/></svg>',saved:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 3h12v18l-6-4-6 4z"/></svg>'};
+const names=()=>Object.fromEntries(D.channels.map(c=>[c.u,c.n]));
+function visible(p){return !hidden.has(p.c)&&!pend.del.includes(p.c)}
+function matches(t){const q=$('q').value.trim().toLowerCase();return !q||t.toLowerCase().includes(q)}
+function postCard(p,N){
+  const k=p.id,isS=saved.some(s=>s.id===k),op=open.has(k);
+  const body=p.x?(op?`<div class="full">${esc(p.x)}</div>`:`<div class="hl">${esc(head(p.x))}</div>`):'<div class="md">הודעה עם תמונה או סרטון</div>';
+  const canMore=p.x&&head(p.x)!==p.x.trim();
+  return `<li class="card">${body}
+  <div class="ft"><span class="src">${esc(N[p.c]||p.c)}</span>
+  ${canMore?`<button class="more" data-o="${esc(k)}">${op?'פחות':'עוד'}</button>`:''}
+  <a class="go sm" href="https://t.me/${esc(k)}" target="_blank" rel="noopener" aria-label="פתיחה בטלגרם"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a>
+  <button class="sm" data-s="${esc(k)}" aria-pressed="${isS}" aria-label="${isS?'הסרה מהשמורים':'שמירה'}">${isS?ico.saved:ico.save}</button>
+  <time>${when(p.t)}</time></div></li>`;
+}
+function render(){
+  const N=names(),byId=Object.fromEntries(D.feed.map(p=>[p.id,p]));let h='';
+  if(tab==='big'){
+    const S=D.stories.map(s=>{const ps=s.ids.map(i=>byId[i]).filter(p=>p&&visible(p));return{...s,ps,n:new Set(ps.map(p=>p.c)).size}})
+      .filter(s=>s.n>=2&&s.ps.some(p=>matches(p.x)));
+    h=S.map(s=>{const top=s.ps[0],k='s:'+top.id,op=open.has(k),isS=saved.some(x=>x.id===top.id);
+      const chans=[...new Set(s.ps.map(p=>N[p.c]||p.c))];
+      return `<li class="card big"><div class="k"><span class="dots">${Array.from({length:7},(_,i)=>`<b class="${i<s.n?'':'o'}"></b>`).join('')}</span>${s.n} ערוצים</div>
+      <div class="hl">${esc(head(top.x))}</div>
+      ${op?`<ul class="sub">${s.ps.map(p=>`<li><b>${esc(N[p.c]||p.c)}</b> · ${when(p.t)}<div class="full">${esc(p.x)}</div><a class="go" href="https://t.me/${esc(p.id)}" target="_blank" rel="noopener">לפתיחה בטלגרם ←</a></li>`).join('')}</ul>`:''}
+      <div class="ft"><span class="src">${esc(chans.join(' · '))}</span>
+      <button class="more" data-o="${esc(k)}">${op?'סגירה':'כל הדיווחים'}</button>
+      <button class="sm" data-s="${esc(top.id)}" aria-pressed="${isS}" aria-label="${isS?'הסרה מהשמורים':'שמירה'}">${isS?ico.saved:ico.save}</button>
+      <time>${when(s.t)}</time></div></li>`}).join('');
+    if(!h)h='<li class="empty">כרגע אין ידיעה שמדווחת בכמה ערוצים יחד. כל ההודעות נמצאות בלשונית "כל הידיעות".</li>';
+  }else if(tab==='all'){
+    const L=D.feed.filter(p=>visible(p)&&matches(p.x)).slice(0,250);
+    h=L.map(p=>postCard(p,N)).join('')||'<li class="empty">אין ידיעות להצגה.</li>';
+  }else{
+    const L=saved.filter(p=>matches(p.x||''));
+    h=L.map(p=>postCard(p,N)).join('')||'<li class="empty">עוד לא שמרת ידיעות. לוחצים על סמל השמירה ליד ידיעה.</li>';
+  }
+  $('list').innerHTML=h;
+  $('upd').innerHTML='עודכן<br>'+esc(when(D.updated));
+}
+function renderSettings(){
+  const N=names(),tok=st.get('tn-tok','');
+  pend.add=pend.add.filter(u=>!D.channels.some(c=>c.u.toLowerCase()===u.toLowerCase()));
+  pend.del=pend.del.filter(u=>D.channels.some(c=>c.u===u));st.set('tn-pending',pend);
+  const L=D.channels.filter(c=>!pend.del.includes(c.u)).map(c=>({u:c.u,n:c.n,err:c.err})).concat(pend.add.map(u=>({u,n:u,p:1})));
+  $('chl').innerHTML=L.map(c=>`<li><span class="nm">${esc(c.n)} ${c.p?'<span class="tag">ממתין לעדכון</span>':''}${c.err?'<span class="tag">לא נמצא</span>':''}<small>@${esc(c.u)}</small></span>
+    ${c.p?'':`<label class="sw"><input type="checkbox" data-h="${esc(c.u)}" ${hidden.has(c.u)?'':'checked'} aria-label="הצגת ${esc(c.n)}"><span></span></label>`}
+    <button class="del" data-d="${esc(c.u)}">מחיקה</button></li>`).join('');
+  $('tokStat').textContent=tok?'מפתח שמור בטלפון הזה. אפשר להוסיף ולמחוק ערוצים.':'';
+  $('tokHelp').style.display=tok?'none':'';
+}
+async function gh(path,opt={}){
+  const tok=st.get('tn-tok','');if(!tok)throw new Error('צריך קודם לשמור מפתח גישה (בתחתית המסך).');
+  const r=await fetch('https://api.github.com/repos/'+REPO+path,{...opt,headers:{Authorization:'Bearer '+tok,Accept:'application/vnd.github+json',...(opt.body?{'Content-Type':'application/json'}:{})}});
+  if(r.status===401)throw new Error('המפתח לא תקין או שפג תוקפו.');
+  if(r.status===403||r.status===404)throw new Error('למפתח אין הרשאה מתאימה. בדוק שבחרת את telegram-news ונתת Contents ו־Actions.');
+  if(!r.ok)throw new Error('שגיאה מ־GitHub ('+r.status+').');
+  return r.status===204?null:r.json();
+}
+async function editList(fn){
+  const f=await gh('/contents/channels.txt');
+  const txt=decodeURIComponent(escape(atob(f.content.replace(/\n/g,''))));
+  let lines=txt.split('\n').map(s=>s.trim()).filter(Boolean);
+  lines=fn(lines);
+  await gh('/contents/channels.txt',{method:'PUT',body:JSON.stringify({message:'עדכון רשימת ערוצים',content:btoa(unescape(encodeURIComponent(lines.join('\n')+'\n'))),sha:f.sha})});
+  await gh('/actions/workflows/update.yml/dispatches',{method:'POST',body:JSON.stringify({ref:'main'})});
+}
+function msg(id,t,ok){$(id).textContent=t;$(id).className='msg '+(ok?'ok':'err')}
+$('addB').addEventListener('click',async()=>{
+  let u=$('addU').value.trim().replace(/^https?:\/\/(www\.)?t\.me\/(s\/)?/i,'').replace(/^@/,'').replace(/[\/?#].*$/,'');
+  if(!/^[A-Za-z][A-Za-z0-9_]{3,31}$/.test(u))return msg('addM','שם ערוץ לא תקין. כותבים באנגלית, למשל amitsegal, או מדביקים קישור t.me.');
+  if(D.channels.some(c=>c.u.toLowerCase()===u.toLowerCase())||pend.add.includes(u))return msg('addM','הערוץ הזה כבר ברשימה.');
+  $('addB').disabled=true;msg('addM','מוסיף…',true);
+  try{await editList(L=>L.concat(u));pend.add.push(u);st.set('tn-pending',pend);$('addU').value='';msg('addM','נוסף! ההודעות שלו יופיעו בעוד דקה־שתיים.',true);renderSettings()}
+  catch(e){msg('addM',e.message)}finally{$('addB').disabled=false}
+});
+$('chl').addEventListener('change',e=>{const u=e.target.dataset.h;if(!u)return;e.target.checked?hidden.delete(u):hidden.add(u);st.set('tn-hidden',[...hidden]);render()});
+$('chl').addEventListener('click',async e=>{const b=e.target.closest('[data-d]');if(!b)return;const u=b.dataset.d;
+  if(b.dataset.c!=='1'){b.dataset.c='1';b.textContent='בטוח?';setTimeout(()=>{if(b.isConnected){b.dataset.c='';b.textContent='מחיקה'}},4000);return}
+  b.disabled=true;b.textContent='מוחק…';
+  try{await editList(L=>L.filter(x=>x.replace(/^@/,'').toLowerCase()!==u.toLowerCase()));
+    if(pend.add.includes(u))pend.add=pend.add.filter(x=>x!==u);else pend.del.push(u);st.set('tn-pending',pend);renderSettings();render();msg('addM','הערוץ נמחק.',true)}
+  catch(err){msg('addM',err.message);b.disabled=false;b.textContent='מחיקה';b.dataset.c=''}
+});
+$('tokB').addEventListener('click',async()=>{const v=$('tok').value.trim();if(!v)return msg('tokM','הדבק קודם את המפתח.');
+  st.set('tn-tok',v);msg('tokM','בודק…',true);
+  try{await gh('/contents/channels.txt');$('tok').value='';msg('tokM','המפתח נשמר ועובד.',true);renderSettings()}
+  catch(e){st.set('tn-tok','');msg('tokM',e.message)}});
+$('gBtn').addEventListener('click',()=>{renderSettings();$('dlg').showModal()});
+$('xBtn').addEventListener('click',()=>$('dlg').close());
+$('dlg').addEventListener('click',e=>{if(e.target===$('dlg'))$('dlg').close()});
+$('sBtn').addEventListener('click',()=>{const w=$('sWrap');w.classList.toggle('on');if(w.classList.contains('on'))$('q').focus();else{$('q').value='';render()}});
+$('q').addEventListener('input',render);
+document.querySelector('.tabs').addEventListener('click',e=>{const b=e.target.closest('[data-t]');if(!b)return;tab=b.dataset.t;document.querySelectorAll('.tabs button').forEach(x=>x.setAttribute('aria-selected',x===b));scrollTo(0,0);render()});
+$('list').addEventListener('click',e=>{
+  const o=e.target.closest('[data-o]');if(o){const k=o.dataset.o;open.has(k)?open.delete(k):open.add(k);render();return}
+  const s=e.target.closest('[data-s]');if(s){const id=s.dataset.s,i=saved.findIndex(x=>x.id===id);
+    if(i>=0)saved.splice(i,1);else{const p=D.feed.find(x=>x.id===id)||saved.find(x=>x.id===id);if(p)saved.unshift(p)}
+    st.set('tn-saved',saved.slice(0,300));render()}
+});
+async function refresh(){try{const r=await fetch('data.json?'+Date.now(),{cache:'no-store'});if(r.ok){const n=await r.json();if(n.updated!==D.updated){D=n;render();if($('dlg').open)renderSettings()}}}catch(e){}}
+setInterval(refresh,120000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});
+setInterval(()=>$('upd').innerHTML='עודכן<br>'+esc(when(D.updated)),60000);
+render();
+}
+</script>
+</body>
+</html>
