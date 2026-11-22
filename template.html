@@ -47,7 +47,7 @@ a.go{color:var(--blue);text-decoration:none;font-size:14px;font-weight:500}
 .empty{text-align:center;color:var(--mute);padding:40px 16px}
 dialog{width:min(560px,100vw);max-height:92vh;border:0;border-radius:18px 18px 0 0;padding:0;margin:auto auto 0;background:var(--card);color:var(--ink)}
 dialog::backdrop{background:#0008}
-.dh{position:sticky;top:0;background:var(--card);display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line)}
+.dh{position:sticky;top:0;z-index:2;background:var(--card);display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line)}
 .dh h2{margin:0;font-size:20px}
 .db{padding:14px 16px 24px;display:grid;gap:18px}
 .db h3{margin:0 0 6px;font-size:16px}
@@ -230,10 +230,23 @@ $('list').addEventListener('click',e=>{
     if(i>=0)saved.splice(i,1);else{const p=D.feed.find(x=>x.id===id)||saved.find(x=>x.id===id);if(p)saved.unshift(p)}
     st.set('tn-saved',saved.slice(0,300));render()}
 });
-async function refresh(){try{const r=await fetch('data.json?'+Date.now(),{cache:'no-store'});if(r.ok){const n=await r.json();if(n.updated!==D.updated){D=n;render();if($('dlg').open)renderSettings()}}}catch(e){}}
+let busy=false;
+const updTxt=()=>{$('upd').innerHTML=(busy?'מעדכן…':'עודכן')+'<br>'+esc(when(D.updated))};
+async function refresh(){try{const r=await fetch('data.json?'+Date.now(),{cache:'no-store'});if(r.ok){const n=await r.json();if(n.updated!==D.updated){D=n;busy=false;render();if($('dlg').open)renderSettings()}}}catch(e){}updTxt()}
+async function kick(){
+  /* GitHub לא תמיד מריץ את העדכון המתוזמן בזמן, אז כשפותחים את האפליקציה והמידע ישן, היא מבקשת עדכון בעצמה */
+  if(!st.get('tn-tok','')||document.hidden||busy)return;
+  const age=Date.now()-new Date(D.updated),last=st.get('tn-kick',0);
+  if(age<10*60000||Date.now()-last<4*60000)return;
+  st.set('tn-kick',Date.now());busy=true;updTxt();
+  try{await gh('/actions/workflows/update.yml/dispatches',{method:'POST',body:JSON.stringify({ref:'main'})})}catch(e){busy=false;updTxt();return}
+  let n=0;const t=setInterval(async()=>{n++;await refresh();if(!busy||n>=14){clearInterval(t);busy=false;updTxt()}},15000);
+}
 setInterval(refresh,120000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});
-setInterval(()=>$('upd').innerHTML='עודכן<br>'+esc(when(D.updated)),60000);
+setInterval(kick,60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){refresh().then(kick)}});
+setInterval(updTxt,60000);
+kick();
 render();
 }
 </script>
