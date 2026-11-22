@@ -68,6 +68,10 @@ dialog::backdrop{background:#0008}
 .help{font-size:14px;color:var(--mute);margin:0}.help ol{display:block;padding-inline-start:20px;margin:6px 0}.help li{margin:3px 0}
 .help a{color:var(--blue)}
 .tag{font-size:12px;background:var(--soft);border-radius:4px;padding:1px 6px;color:var(--mute)}
+.tp{display:inline-flex;align-items:center;min-height:28px;padding:0 10px;border-radius:14px;border:0;font:inherit;font-size:13px;font-weight:700;cursor:pointer;color:#fff;margin-bottom:4px}
+.card .top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.fbar{max-width:760px;margin:0 auto;padding:0 max(3vw,12px) 10px;display:none;align-items:center;gap:8px;font-size:14px}
+.fbar.on{display:flex}.fbar button{border:1px solid var(--line);background:var(--card);border-radius:16px;min-height:34px;padding:0 12px;cursor:pointer;font-size:14px}
 </style>
 </head>
 <body>
@@ -84,6 +88,7 @@ dialog::backdrop{background:#0008}
     <button role="tab" data-t="all" aria-selected="false">כל הידיעות</button>
     <button role="tab" data-t="saved" aria-selected="false">שמורים</button>
   </div>
+  <div class="fbar" id="fbar"></div>
 </header>
 <main><ol id="list"></ol></main>
 
@@ -130,6 +135,28 @@ const df=new Intl.DateTimeFormat('he-IL',{timeZone:'Asia/Jerusalem',weekday:'lon
 const sameDay=d=>new Date(d).toLocaleDateString('he-IL',{timeZone:'Asia/Jerusalem'})===new Date().toLocaleDateString('he-IL',{timeZone:'Asia/Jerusalem'});
 const when=d=>sameDay(d)?tf.format(new Date(d)):df.format(new Date(d)).replace(/^יום /,'');
 const head=x=>{let s=(x||'').split('\n').map(l=>l.trim()).find(l=>l.replace(/[^\p{L}\p{N}]/gu,'').length>3)||x||'';s=s.split(/(?<=[.!?])\s/)[0];return s.length>160?s.slice(0,157)+'…':s};
+const TOPICS=[
+ ['איראן','#7a3fc0',/איראן|איראני|טהרן|הורמוז|חמינאי|משמרות המהפכה|עראקצ׳י|עראקצ'י|פזשכיאן/g],
+ ['לבנון','#1f8a5b',/לבנון|חיזבאללה|ביירות|ליטני|נעים קאסם/g],
+ ['עזה','#c0571f',/עזה|חמאס|רפיח|ח׳אן יונס|ח'אן יונס|חאן יונס|דיר אל|ג׳בליה|ג'בליה|ברצועה|הרצועה|חטופ/g],
+ ['תימן','#8a6d1f',/תימן|חות׳י|חות'י|חותי|צנעא/g],
+ ['סוריה','#5b6b1f',/סוריה|סורי|דמשק|ג׳ולאני|ג'ולאני|אל־שרע|אל-שרע/g],
+ ['התרעה','#e0262f',/אזעק|התרע|מרחב המוגן|מרחב מוגן|פיקוד העורף|צבע אדום|חדירת מחבלים|חדירת כלי טיס/g],
+ ['יהודה ושומרון','#8b4a2b',/יהודה ושומרון|שומרון|בנימין|ג׳נין|ג'נין|שכם|חברון|טול כרם|יו״ש|יו"ש|רמאללה|גוש עציון|בקעת הירדן/g],
+ ['פוליטי','#1b5fd2',/כנסת|קואליצי|אופוזיצי|הממשלה|ממשלת|בחירות|ליכוד|מנדט|ח״כ|ח"כ|סקר|מפלגת|נתניהו|איזנקוט|ליברמן|בנט|גנץ|לפיד|סמוטריץ|בן גביר|בן־גביר|דרעי|גפני|גולדקנופף|ש״ס|ש"ס|יהדות התורה/g],
+ ['משפט ופלילים','#4a5563',/בג״ץ|בג"ץ|בית המשפט|יועמ״ש|יועמ"ש|פרקליט|כתב אישום|משטרה|שוטר|נעצר|נעצרו|חשוד|רצח|נרצח|דקירה|קטטה/g],
+ ['תאונות וחירום','#d98a00',/תאונ|מד״א|מד"א|איחוד הצלה|שריפה|השריפה|לוחמי האש|כבאות|רעידת אדמה|טבע|נפגע|נפצע|נפצעה/g],
+ ['ביטחון','#0b4f7a',/צה״ל|צה"ל|חייל|לוחמ|מחבל|פיגוע|יירוט|יירט|טיל|רקט|רחפן|כטב״ם|כטב"ם|שב״כ|שב"כ|המוסד|דובר צה|תקיפ/g],
+ ['כלכלה','#1f7a8a',/בורסה|דולר|שקל|אינפלצי|ריבית|מחירי|מע״מ|מע"מ|תקציב|משכורת|יוקר המחיה|בנק ישראל/g],
+ ['יהדות','#6b3f8a',/הרב |הגאון|האדמו״ר|האדמו"ר|רבנ|ישיב|חרדי|בית כנסת|בית הכנסת|גדולי ישראל|תלמידי ישיבות|גיוס/g],
+ ['בעולם','#3b6b8a',/טראמפ|ארה״ב|ארה"ב|אמריק|רוסי|אוקראינ|פוטין|סין|אירופ|בריטני|צרפת|גרמני|האו״ם|האו"ם|נאט״ו|נאט"ו|טורקי|תורכי|מצרי|סעודי|ירדן|קטאר|האמירויות/g]
+];
+const TCOL=Object.fromEntries(TOPICS.map(t=>[t[0],t[1]]));TCOL['כללי']='#6b7785';
+function topicOf(x){if(!x)return'כללי';const t=x.replace(/[֑-ׇ]/g,'');let best='כללי',bs=0;
+  for(const[n,,re]of TOPICS){const m=t.match(re);const c=(m?m.length:0)*(n==='בעולם'?0.5:n==='ביטחון'?0.8:1);if(c>bs){bs=c;best=n}}return best}
+const tcache={};const tp=p=>tcache[p.id]??=topicOf(p.x);
+let topic=null;
+const tag=n=>`<button class="tp" data-topic="${esc(n)}" style="background:${TCOL[n]}" aria-label="רק ${esc(n)}">${esc(n)}</button>`;
 const ico={save:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18l-6-4-6 4z"/></svg>',saved:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 3h12v18l-6-4-6 4z"/></svg>'};
 const names=()=>Object.fromEntries(D.channels.map(c=>[c.u,c.n]));
 function visible(p){return !hidden.has(p.c)&&!pend.del.includes(p.c)}
@@ -138,7 +165,7 @@ function postCard(p,N){
   const k=p.id,isS=saved.some(s=>s.id===k),op=open.has(k);
   const body=p.x?(op?`<div class="full">${esc(p.x)}</div>`:`<div class="hl">${esc(head(p.x))}</div>`):'<div class="md">הודעה עם תמונה או סרטון</div>';
   const canMore=p.x&&head(p.x)!==p.x.trim();
-  return `<li class="card">${body}
+  return `<li class="card">${tag(tp(p))}${body}
   <div class="ft"><span class="src">${esc(N[p.c]||p.c)}</span>
   ${canMore?`<button class="more" data-o="${esc(k)}">${op?'פחות':'עוד'}</button>`:''}
   <a class="go sm" href="https://t.me/${esc(k)}" target="_blank" rel="noopener" aria-label="פתיחה בטלגרם"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a>
@@ -149,10 +176,10 @@ function render(){
   const N=names(),byId=Object.fromEntries(D.feed.map(p=>[p.id,p]));let h='';
   if(tab==='big'){
     const S=D.stories.map(s=>{const ps=s.ids.map(i=>byId[i]).filter(p=>p&&visible(p));return{...s,ps,n:new Set(ps.map(p=>p.c)).size}})
-      .filter(s=>s.n>=2&&s.ps.some(p=>matches(p.x)));
+      .map(s=>({...s,tp:topicOf(s.ps.map(p=>p.x).join('\n'))})).filter(s=>s.n>=2&&s.ps.some(p=>matches(p.x))&&(!topic||s.tp===topic));
     h=S.map(s=>{const top=s.ps[0],k='s:'+top.id,op=open.has(k),isS=saved.some(x=>x.id===top.id);
       const chans=[...new Set(s.ps.map(p=>N[p.c]||p.c))];
-      return `<li class="card big"><div class="k"><span class="dots">${Array.from({length:7},(_,i)=>`<b class="${i<s.n?'':'o'}"></b>`).join('')}</span>${s.n} ערוצים</div>
+      return `<li class="card big"><div class="top">${tag(s.tp)}<div class="k"><span class="dots">${Array.from({length:7},(_,i)=>`<b class="${i<s.n?'':'o'}"></b>`).join('')}</span>${s.n} ערוצים</div></div>
       <div class="hl">${esc(head(top.x))}</div>
       ${op?`<ul class="sub">${s.ps.map(p=>`<li><b>${esc(N[p.c]||p.c)}</b> · ${when(p.t)}<div class="full">${esc(p.x)}</div><a class="go" href="https://t.me/${esc(p.id)}" target="_blank" rel="noopener">לפתיחה בטלגרם ←</a></li>`).join('')}</ul>`:''}
       <div class="ft"><span class="src">${esc(chans.join(' · '))}</span>
@@ -161,12 +188,15 @@ function render(){
       <time>${when(s.t)}</time></div></li>`}).join('');
     if(!h)h='<li class="empty">כרגע אין ידיעה שמדווחת בכמה ערוצים יחד. כל ההודעות נמצאות בלשונית "כל הידיעות".</li>';
   }else if(tab==='all'){
-    const L=D.feed.filter(p=>visible(p)&&matches(p.x)).slice(0,250);
+    const L=D.feed.filter(p=>visible(p)&&matches(p.x)&&(!topic||tp(p)===topic)).slice(0,250);
     h=L.map(p=>postCard(p,N)).join('')||'<li class="empty">אין ידיעות להצגה.</li>';
   }else{
-    const L=saved.filter(p=>matches(p.x||''));
+    const L=saved.filter(p=>matches(p.x||'')&&(!topic||tp(p)===topic));
     h=L.map(p=>postCard(p,N)).join('')||'<li class="empty">עוד לא שמרת ידיעות. לוחצים על סמל השמירה ליד ידיעה.</li>';
   }
+  $('fbar').className='fbar'+(topic?' on':'');
+  $('fbar').innerHTML=topic?`מציג רק: ${tag(topic)}<button id="clrT">× כל הנושאים</button>`:'';
+  if(!h.includes('class="card')&&topic)h=`<li class="empty">אין כרגע ידיעות בנושא ${esc(topic)} בלשונית הזו.</li>`;
   $('list').innerHTML=h;
   $('upd').innerHTML='עודכן<br>'+esc(when(D.updated));
 }
@@ -224,7 +254,9 @@ $('dlg').addEventListener('click',e=>{if(e.target===$('dlg'))$('dlg').close()});
 $('sBtn').addEventListener('click',()=>{const w=$('sWrap');w.classList.toggle('on');if(w.classList.contains('on'))$('q').focus();else{$('q').value='';render()}});
 $('q').addEventListener('input',render);
 document.querySelector('.tabs').addEventListener('click',e=>{const b=e.target.closest('[data-t]');if(!b)return;tab=b.dataset.t;document.querySelectorAll('.tabs button').forEach(x=>x.setAttribute('aria-selected',x===b));scrollTo(0,0);render()});
-$('list').addEventListener('click',e=>{
+function pickTopic(e){const b=e.target.closest('[data-topic]');if(b){topic=topic===b.dataset.topic?null:b.dataset.topic;scrollTo(0,0);render();return true}if(e.target.id==='clrT'){topic=null;render();return true}return false}
+$('fbar').addEventListener('click',pickTopic);
+$('list').addEventListener('click',e=>{if(pickTopic(e))return;
   const o=e.target.closest('[data-o]');if(o){const k=o.dataset.o;open.has(k)?open.delete(k):open.add(k);render();return}
   const s=e.target.closest('[data-s]');if(s){const id=s.dataset.s,i=saved.findIndex(x=>x.id===id);
     if(i>=0)saved.splice(i,1);else{const p=D.feed.find(x=>x.id===id)||saved.find(x=>x.id===id);if(p)saved.unshift(p)}
