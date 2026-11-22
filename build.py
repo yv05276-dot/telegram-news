@@ -1,18 +1,20 @@
 # בונה את אתר החדשות מערוצי טלגרם ציבוריים. רץ אוטומטית דרך GitHub Actions.
 # רשימת הערוצים נמצאת בקובץ channels.txt (ערוץ אחד בכל שורה).
-import json, re, html, urllib.request, datetime, os
+import json, re, html, urllib.request, datetime, os, time
 
 CHANNELS = []
 for line in open("channels.txt", encoding="utf-8"):
     u = line.strip().lstrip("@")
     if u and not u.startswith("#") and u not in CHANNELS:
         CHANNELS.append(u)
-PER_CHANNEL = 20
+PAGES = 4          # כל עמוד בטלגרם הוא כ־20 הודעות; 4 עמודים מכסים גם שבת שלמה
+KEEP_HOURS = 40    # שומרים הודעות מ־40 השעות האחרונות
 MAX_TEXT = 1200
 REPO = os.environ.get("GITHUB_REPOSITORY", "")
 
-def fetch(u):
-    req = urllib.request.Request("https://t.me/s/" + u, headers={"User-Agent": "Mozilla/5.0"})
+def fetch(u, before=None):
+    url = "https://t.me/s/" + u + (f"?before={before}" if before else "")
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     with urllib.request.urlopen(req, timeout=30) as r:
         return r.read().decode("utf-8", "replace")
 
@@ -40,7 +42,7 @@ def parse(u, page):
         if len(text) > MAX_TEXT:
             text = text[:MAX_TEXT].rsplit(" ", 1)[0] + "…"
         posts.append({"c": u, "id": pid, "t": t.group(1), "x": text, "m": media})
-    return {"u": u, "n": title, "s": subs}, posts[-PER_CHANNEL:]
+    return {"u": u, "n": title, "s": subs}, posts
 
 # ---- זיהוי ידיעות גדולות: אותה ידיעה בכמה ערוצים ----
 STOP = set("""של את על עם זה זו זאת גם לא כי אם או הוא היא הם הן אני אנחנו יש אין כל כך רק עוד כבר היום
@@ -64,7 +66,7 @@ def ts(p):
 
 def stories(feed):
     now = datetime.datetime.now(datetime.timezone.utc)
-    recent = [p for p in feed if p["x"] and now - ts(p) < datetime.timedelta(hours=12)]
+    recent = [p for p in feed if p["x"] and now - ts(p) < datetime.timedelta(hours=36)]
     tk = [tokens(p["x"][:400]) for p in recent]
     df = {}
     for s in tk:
@@ -97,14 +99,30 @@ def stories(feed):
             g.sort(key=lambda p: p["t"], reverse=True)
             out.append({"ids": [p["id"] for p in g], "n": len(chans), "t": g[0]["t"]})
     out.sort(key=lambda s: (s["n"], s["t"]), reverse=True)
-    return out[:30]
+    return out[:80]
 
 channels, feed = [], []
+cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=KEEP_HOURS)
 for u in CHANNELS:
     try:
         info, posts = parse(u, fetch(u))
+        seen = {p["id"] for p in posts}
+        for _ in range(PAGES - 1):
+            if not posts or ts(min(posts, key=lambda p: p["t"])) < cutoff:
+                break
+            low = min(int(p["id"].split("/")[1]) for p in posts)
+            time.sleep(0.4)
+            try:
+                _, more = parse(u, fetch(u, low))
+            except Exception:
+                break
+            more = [p for p in more if p["id"] not in seen]
+            if not more:
+                break
+            seen |= {p["id"] for p in more}
+            posts += more
         channels.append(info)
-        feed += posts
+        feed += [p for p in posts if ts(p) >= cutoff]
     except Exception as e:
         print("שגיאה בערוץ", u, e)
         channels.append({"u": u, "n": u, "s": "", "err": True})
