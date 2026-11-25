@@ -41,7 +41,8 @@ def parse(u, page):
             continue
         if len(text) > MAX_TEXT:
             text = text[:MAX_TEXT].rsplit(" ", 1)[0] + "…"
-        posts.append({"c": u, "id": pid, "t": t.group(1), "x": text, "m": media})
+        vw = re.search(r'tgme_widget_message_views">([^<]+)<', chunk)
+        posts.append({"c": u, "id": pid, "t": t.group(1), "x": text, "m": media, "v": vw.group(1).strip() if vw else ""})
     return {"u": u, "n": title, "s": subs}, posts
 
 # ---- זיהוי ידיעות גדולות: אותה ידיעה בכמה ערוצים ----
