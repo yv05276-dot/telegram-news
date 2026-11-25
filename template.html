@@ -129,7 +129,20 @@ ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px
 .msg{font-size:14px;min-height:1.2em;margin:6px 0 0}.msg.err{color:var(--red)}.msg.ok{color:#1f9d6b}
 .help{font-size:14px;color:var(--mute);margin:0 0 6px}.help ol{display:block;padding-inline-start:20px;margin:6px 0}.help li{margin:3px 0}.help a{color:var(--acc)}
 .tag{font-size:12px;background:var(--soft);border-radius:4px;padding:1px 6px;color:var(--mute)}
-@media(prefers-reduced-motion:reduce){.sub.busy::before{animation:none}}
+.m.cont{margin-top:-4px}.m .avs{width:36px;flex:none}
+.m.cont .b{border-start-end-radius:6px}.m.nx .b{border-end-start-radius:16px}
+.b.urg{border-inline-start:4px solid var(--red)}
+.uvs{color:var(--mute);font-size:11.5px;font-weight:500}
+.upd{padding-inline-start:43px}.upd .b{background:var(--big);padding:5px 11px}
+.upd .k{color:var(--acc);margin-bottom:1px}.upd .tx{font-size:.9em}
+.brief{background:var(--bub);border-radius:16px;padding:10px 12px 6px;box-shadow:0 1px 1.5px #00000022;margin:2px 0 8px}
+.brief h4{margin:0 0 4px;font-size:15px;color:var(--acc)}
+.brief button{display:flex;gap:8px;width:100%;text-align:start;border:0;background:none;padding:7px 0;border-top:1px solid var(--line);cursor:pointer;font-size:.92em;line-height:1.35}
+.brief button:first-of-type{border-top:0}.brief time{color:var(--mute);font-size:12px;flex:none;padding-top:2px;min-width:38px}
+.brief .bd{width:8px;height:8px;border-radius:50%;flex:none;margin-top:6px}
+.fab i{font-size:12px}
+@keyframes inA{from{opacity:0;transform:translateY(10px)}}.m.fresh{animation:inA .35s ease-out}
+@media(prefers-reduced-motion:reduce){.sub.busy::before{animation:none}.m.fresh{animation:none}}
 </style>
 </head>
 <body>
@@ -305,7 +318,7 @@ const unreadT=t=>readTo>0&&ms(t)>readTo;
 /* ---------- ידיעות (צירוף כפילויות) ---------- */
 function stories(){const byId=Object.fromEntries(D.feed.map(p=>[p.id,p]));
   return(D.stories||[]).map(s=>{const ps=s.ids.map(i=>byId[i]).filter(p=>p&&visible(p)).sort((a,b)=>ms(a.t)-ms(b.t));const n=new Set(ps.map(p=>p.c)).size;
-    return{ps,n,t:ps.length?ps[ps.length-1].t:s.t,first:ps[0],tp:topicOf(ps.map(p=>p.x).join('\n')),uv:ps.some(p=>info(p).uv)}}).filter(s=>s.n>=2)}
+    return{ps,n,t:ps.length?ps[ps.length-1].t:s.t,first:ps[0],tp:topicOf(ps.map(p=>p.x).join('\n')),uv:ps.some(p=>info(p).uv)}}).filter(s=>s.n>=2).map(s=>(s.lab=newBits(s.ps),s))}
 const sKey=s=>'s:'+s.first.id;
 
 /* ---------- צבעים ואווטרים ---------- */
@@ -318,7 +331,7 @@ const ico={eye:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strok
   share:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg>'};
 const tpBtn=n=>`<button class="tp" data-topic="${esc(n)}" style="background:${TCOL[n]}">${esc(n)}</button>`;
 const isSaved=id=>saved.some(x=>x.id===id);
-const foot=(p,t)=>`<div class="f">${isSaved(p.id)?`<span class="sv">${ico.saved}</span>`:''}${p.v?`<span>${ico.eye} ${esc(p.v)}</span>`:''}<span>${tf.format(new Date(t||p.t))}</span></div>`;
+const foot=(p,t)=>`<div class="f">${isSaved(p.id)?`<span class="sv">${ico.saved}</span>`:''}<span>${tf.format(new Date(t||p.t))}</span></div>`;
 
 /* ---------- ניקוי טקסט ---------- */
 const SIG=/הצטרפו|להצטרפות|הצטרפות לערוץ|למבזק המלא|לכתבה המלאה|לכל העדכונים|לעדכונים נוספים|שתפו את הערוץ|t\.me\/|^\s*@\w+\s*$|^\s*>+\s*$/i;
@@ -327,14 +340,23 @@ function clean(x){if(!x)return'';const L=x.split('\n').map(l=>l.replace(/\s+$/,'
   return keep.join('\n').replace(/\n{3,}/g,'\n\n').trim()}
 const linkify=t=>esc(t).replace(/https?:\/\/[^\s<]+/g,u=>`<a href="${u}" target="_blank" rel="noopener">${u.length>40?u.slice(0,38)+'…':u}</a>`);
 const CUT=300;
+const URG=/אזעק|צבע אדום|היכנסו למרחב|מרחב המוגן|חדירת|ירי רקטות|שיגור|שיגורים|פיגוע|מבזק|דחוף|^\s*🔴|🚨/;
+const urg=p=>p.c==='PikudHaOref_all'||URG.test((p.x||'').replace(NIQ,'').slice(0,160));
+let anchor=false,seenIds=null;
 
 /* ---------- בועות ---------- */
-function postBubble(p,N){const i=info(p),c=clean(p.x);const long=c.length>CUT;
+function postBubble(p,N,cont,nx,idx){const i=info(p),c=clean(p.x);const long=c.length>CUT;
   const txt=c?`<div class="tx">${esc(long?c.slice(0,CUT).replace(/\s+\S*$/,'')+'…':c)}${long?' <span class="rm">קרא עוד</span>':''}</div>`:'<div class="md">תמונה או סרטון</div>';
-  return`<li class="m" data-t="${esc(p.t)}">${avOf(p.c,N)}<div class="b" data-r="${esc(p.id)}"><div class="n"><button class="cn" data-ch="${esc(p.c)}" style="color:${colOf(p.c)}">${esc(short(N[p.c]||p.c))}</button>${tpBtn(i.tp)}${i.uv?'<span class="uv">לא מאומת</span>':''}</div>${txt}${foot(p)}</div></li>`}
-function storyBubble(s,N){const chans=[...new Set(s.ps.map(p=>p.c))];
-  return`<li class="m big" data-t="${esc(s.t)}"><div class="b" data-r="${esc(sKey(s))}"><div class="k"><span class="stack">${chans.slice(0,5).map(u=>`<i style="background:${colOf(u)}"></i>`).join('')}</span>ידיעה גדולה · ${s.n} ערוצים ${tpBtn(s.tp)}${s.uv?'<span class="uv">לא מאומת</span>':''}</div>
-  <div class="hl">${esc(head(clean(s.first.x)))}</div><div class="more"><span>כל הדיווחים ←</span><span>${tf.format(new Date(s.t))}</span></div></div></li>`}
+  const fr=seenIds&&!seenIds.has(p.id)?' fresh':'';
+  return`<li class="m${cont?' cont':''}${nx?' nx':''}${fr}" id="i${idx}">${nx?'<span class="avs"></span>':avOf(p.c,N)}<div class="b${urg(p)?' urg':''}" data-r="${esc(p.id)}">${cont?'':`<div class="n"><button class="cn" data-ch="${esc(p.c)}" style="color:${colOf(p.c)}">${esc(short(N[p.c]||p.c))}</button>${i.uv?'<span class="uvs">· לא מאומת</span>':''}</div>`}${txt}${foot(p)}</div></li>`}
+function storyBubble(s,N,idx){const chans=[...new Set(s.ps.map(p=>p.c))],same=tf.format(new Date(s.t))===tf.format(new Date(s.first.t));
+  const fr=seenIds&&!seenIds.has(sKey(s))?' fresh':'';
+  return`<li class="m big${fr}" id="i${idx}"><div class="b${s.ps.some(urg)?' urg':''}" data-r="${esc(sKey(s))}"><div class="k"><span class="stack">${chans.slice(0,5).map(u=>`<i style="background:${colOf(u)}"></i>`).join('')}</span>ידיעה גדולה · ${s.n} ערוצים${s.uv?'<span class="uvs">· לא מאומת</span>':''}</div>
+  <div class="hl">${esc(head(clean(s.first.x)))}</div><div class="more"><span>כל הדיווחים (${s.ps.length}) ←</span><span><bdi>${tf.format(new Date(s.first.t))}</bdi>${same?'':` · עודכן <bdi>${tf.format(new Date(s.t))}</bdi>`}</span></div></div></li>`}
+function updBubble(u,N,idx){const{s,p}=u;const fr=seenIds&&!seenIds.has('u:'+p.id)?' fresh':'';
+  return`<li class="m upd${fr}" id="i${idx}"><div class="b${urg(p)?' urg':''}" data-r="${esc(sKey(s))}"><div class="k">↩ עדכון לידיעה מ־${tf.format(new Date(s.first.t))}</div>
+  <div class="tx"><b style="color:${colOf(p.c)}">${esc(short(N[p.c]||p.c))}:</b> ${esc(head(clean(p.x)))}</div><div class="f"><span>${tf.format(new Date(p.t))}</span></div></div></li>`}
+const itKey=it=>it.s?sKey(it.s):it.u?'u:'+it.u.p.id:it.p.id;
 
 /* ---------- מסך פתוח ---------- */
 let thItem=null;
@@ -372,12 +394,13 @@ $('thC').addEventListener('click',e=>{const t=e.target.closest('[data-topic]');i
 function dayLabel(t){const k=dayKey(t);if(k===dayKey(Date.now()))return'היום';if(k===dayKey(Date.now()-864e5))return'אתמול';return wf.format(new Date(t))}
 function items(S){
   if(tab==='saved')return saved.filter(p=>matches(p)&&(!topic||info(p).tp===topic)&&(!chan||p.c===chan)).map(p=>({t:p.t,p})).sort((a,b)=>ms(a.t)-ms(b.t));
-  if(tab==='big')return S.filter(s=>s.ps.some(matches)&&(!chan||s.ps.some(p=>p.c===chan))&&(!topic||s.tp===topic)).map(s=>({t:s.t,s})).sort((a,b)=>ms(a.t)-ms(b.t));
+  const withUpd=s=>[{t:s.first.t,s}].concat(s.ps.map((p,i)=>i>0&&s.lab[i]==='new'&&ms(p.t)-ms(s.first.t)>20*6e4?{t:p.t,u:{s,p}}:null).filter(Boolean));
+  if(tab==='big')return S.filter(s=>s.ps.some(matches)&&(!chan||s.ps.some(p=>p.c===chan))&&(!topic||s.tp===topic)).flatMap(withUpd).sort((a,b)=>ms(a.t)-ms(b.t));
   const tpF=tab.startsWith('tp:')?tab.slice(3):topic;let out=[];
   if(chan)out=D.feed.filter(p=>p.c===chan&&visible(p)&&matches(p)&&(!tpF||info(p).tp===tpF)).map(p=>({t:p.t,p}));
   else{const sOf={};S.forEach(s=>s.ps.forEach(p=>sOf[p.id]=s));const done=new Set();
     for(const p of D.feed){if(!visible(p))continue;const s=sOf[p.id];
-      if(s){if(done.has(s))continue;done.add(s);if(s.ps.some(matches)&&(!tpF||s.tp===tpF))out.push({t:s.t,s});continue}
+      if(s){if(done.has(s))continue;done.add(s);if(s.ps.some(matches)&&(!tpF||s.tp===tpF))out.push(...withUpd(s));continue}
       if(matches(p)&&(!tpF||info(p).tp===tpF))out.push({t:p.t,p})}}
   return out.sort((a,b)=>ms(a.t)-ms(b.t)).slice(-250)}
 function topTopics(){const c={};D.feed.forEach(p=>{if(visible(p)&&Date.now()-ms(p.t)<24*36e5){const t=info(p).tp;if(t!=='כללי')c[t]=(c[t]||0)+1}});
@@ -395,21 +418,36 @@ function render(mode){
   $('flt').innerHTML=topic&&!tab.startsWith('tp:')?`<div class="flt"><button id="clrT">רק ${esc(topic)} · הצג הכול ×</button></div>`:'';
   let h='';
   if(resting()&&tab!=='saved'){const r=restNow();h=`<li class="rest"><h2>${r.name}</h2><p>האפליקציה במנוחה.</p><p>החדשות יחזרו ב־${when(r.end)}.</p></li>`;$('list').innerHTML=h;fab();return}
-  const L=items(S),lr=tab==='big'&&shabOn?lastRest():null;let day='',div=false,sec='';
-  for(const it of L){
-    if(lr){const s=ms(it.t)<lr.start?'':ms(it.t)<=lr.end?'מה קרה '+lr.name:'מאז צאת '+(lr.name==='בשבת'?'השבת':'החג');if(s&&s!==sec){h+=`<li class="pill hi">${s}</li>`;sec=s;day=dayKey(it.t)}}
-    if(dayKey(it.t)!==day){day=dayKey(it.t);h+=`<li class="pill">${dayLabel(it.t)}</li>`}
-    if(!div&&tab!=='saved'&&isNew(it.t)){div=true;const n=L.filter(x=>isNew(x.t)).length;h+=`<li class="unread" id="unr">${n} ${n===1?'הודעה חדשה':'הודעות חדשות'}</li>`}
-    h+=it.s?storyBubble(it.s,N):postBubble(it.p,N)}
+  const L=items(S),lr=tab==='big'&&shabOn?lastRest():null;let day='',div=false,sec='',prev=null;
+  const nNew=L.filter(x=>isNew(x.t)).length;
+  const same=(x,y)=>x&&y&&x.p&&y.p&&x.p.c===y.p.c&&dayKey(x.t)===dayKey(y.t)&&Math.abs(ms(y.t)-ms(x.t))<15*6e4&&isNew(x.t)===isNew(y.t);
+  L.forEach((it,idx)=>{let brk=false;
+    if(lr){const s=ms(it.t)<lr.start?'':ms(it.t)<=lr.end?'מה קרה '+lr.name:'מאז צאת '+(lr.name==='בשבת'?'השבת':'החג');if(s&&s!==sec){h+=`<li class="pill hi">${s}</li>`;sec=s;day=dayKey(it.t);brk=true}}
+    if(dayKey(it.t)!==day){day=dayKey(it.t);h+=`<li class="pill">${dayLabel(it.t)}</li>`;brk=true}
+    if(!div&&tab!=='saved'&&isNew(it.t)){div=true;brk=true;h+=`<li class="unread" id="unr">${nNew} ${nNew===1?'הודעה חדשה':'הודעות חדשות'}</li>`;
+      if(nNew>=3)h+=brief(L,N)}
+    if(it.s)h+=storyBubble(it.s,N,idx);else if(it.u)h+=updBubble(it.u,N,idx);
+    else{const nxt=L[idx+1];h+=postBubble(it.p,N,!brk&&same(prev,it),same(it,nxt)&&!(nxt&&dayKey(nxt.t)!==dayKey(it.t)),idx)}
+    prev=it});
   if(!L.length)h=`<li class="empty">${tab==='saved'?'עוד לא שמרת הודעות. פותחים הודעה ולוחצים "שמירה".':tab==='big'?'כרגע אין ידיעה שמדווחת בכמה ערוצים יחד.':'אין הודעות להצגה.'}</li>`;
-  const y=scrollY;$('list').innerHTML=h;
-  if(mode==='jump'){const u=$('unr');if(u)scrollTo(0,u.getBoundingClientRect().top+scrollY-$('chs').getBoundingClientRect().bottom-8);else scrollTo(0,document.documentElement.scrollHeight)}
+  const y=scrollY;$('list').innerHTML=h;seenIds=new Set(L.map(itKey));
+  if(mode==='jump')anchor=true;
+  if(anchor){const u=$('unr');if(u)scrollTo(0,u.getBoundingClientRect().top+scrollY-$('chs').getBoundingClientRect().bottom-8);else scrollTo(0,document.documentElement.scrollHeight)}
   else if(stick)scrollTo(0,document.documentElement.scrollHeight);else scrollTo(0,y);
   fab()}
-function fab(){const n=D.feed.filter(p=>visible(p)&&unreadT(p.t)).length;$('fab').classList.toggle('on',!atBottom());$('fabN').textContent=n||'';$('fabN').style.display=n?'':'none'}
+function brief(L,N){
+  const cand=L.map((it,idx)=>({it,idx})).filter(x=>isNew(x.it.t));
+  const score=x=>x.it.s?100+x.it.s.n*10:x.it.u?40:urg(x.it.p)?60:info(x.it.p).tp!=='כללי'?20:10;
+  const top=cand.sort((a,b)=>score(b)-score(a)||ms(b.it.t)-ms(a.it.t)).slice(0,5).sort((a,b)=>ms(a.it.t)-ms(b.it.t));
+  if(!top.length)return'';
+  return`<li class="brief"><h4>מאז שהיית כאן</h4>${top.map(({it,idx})=>{const p=it.s?it.s.first:it.u?it.u.p:it.p,c=it.s?'var(--red)':colOf(p.c);
+    const txt=it.s?`${head(clean(it.s.first.x))} (${it.s.n} ערוצים)`:it.u?'עדכון: '+head(clean(p.x)):head(clean(p.x))||'תמונה או סרטון';
+    return`<button data-go="i${idx}"><span class="bd" style="background:${c}"></span><time>${tf.format(new Date(it.t))}</time><span>${esc(txt)}</span></button>`}).join('')}</li>`}
+function fab(){const n=D.feed.filter(p=>visible(p)&&unreadT(p.t)).length;$('fab').classList.toggle('on',!atBottom());$('fabN').textContent=n?n+' חדשות':'';$('fabN').style.display=n?'':'none'}
 function updTxt(){const u=$('upd'),age=Date.now()-ms(D.updated),n=D.channels.filter(c=>!hidden.has(c.u)&&!pend.del.includes(c.u)).length;
   u.className='sub'+(busy?' busy':'');u.textContent=busy?(stage||'מעדכן…'):(age<90000?'עודכן עכשיו':'עודכן '+when(D.updated))+' · '+n+' ערוצים'}
 let rT;addEventListener('scroll',()=>{clearTimeout(rT);rT=setTimeout(()=>{fab();if(atBottom()&&!document.hidden){markSeen();const t=st.get('tn-seen',0);if(t>readTo){readTo=t;const k=$('tabs').scrollLeft;render();$('tabs').scrollLeft=k}}},250)},{passive:true});
+['touchstart','wheel','keydown','mousedown'].forEach(ev=>addEventListener(ev,()=>{anchor=false},{passive:true}));
 $('fab').addEventListener('click',()=>scrollTo({top:document.documentElement.scrollHeight,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'}));
 
 
@@ -483,6 +521,7 @@ document.querySelector('main').addEventListener('click',e=>{
   const t=e.target.closest('[data-topic]');if(t){topic=topic===t.dataset.topic?null:t.dataset.topic;if(tab!=='saved'&&tab!=='big')tab='all';render('jump');return}
   if(e.target.id==='clrT'){topic=null;render('jump');return}
   const c=e.target.closest('[data-ch]');if(c){chan=chan===c.dataset.ch?null:c.dataset.ch;render('jump');return}
+  const g=e.target.closest('[data-go]');if(g){const el=$(g.dataset.go);if(el){anchor=false;scrollTo({top:el.getBoundingClientRect().top+scrollY-$('chs').getBoundingClientRect().bottom-12,behavior:'smooth'})}return}
   if(e.target.closest('a'))return;
   const r=e.target.closest('[data-r]');if(r)openTh(r.dataset.r)});
 
