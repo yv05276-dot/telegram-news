@@ -195,6 +195,7 @@ dialog::backdrop{background:#0008}
 <script>
 {
 let D=__DATA__;
+try{const L=JSON.parse(localStorage.getItem('tn-data')||'null');if(L&&L.feed&&new Date(L.updated)>new Date(D.updated)&&JSON.stringify(L.channels.map(c=>c.u))===JSON.stringify(D.channels.map(c=>c.u)))D=L}catch(e){}
 const $=id=>document.getElementById(id);
 const esc=t=>String(t).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const st={get(k,f){try{return JSON.parse(localStorage.getItem(k))??f}catch(e){return f}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
@@ -381,7 +382,7 @@ function render(){
   $('list').innerHTML=h;
 }
 function updTxt(){const u=$('upd'),fresh=Date.now()-ms(D.updated)<20*60000;
-  u.className='up'+(busy?' busy':fresh?' fresh':'');u.querySelector('span').textContent=busy?'מעדכן…':'עודכן '+when(D.updated)}
+  u.className='up'+(busy?' busy':fresh?' fresh':'');u.querySelector('span').textContent=busy?(stage||'מעדכן…'):'עודכן '+when(D.updated)}
 
 /* ---------- הגדרות ---------- */
 function renderSettings(){
@@ -463,39 +464,94 @@ document.querySelector('main').addEventListener('click',onClick);
 function markSeen(){const top=D.feed.reduce((m,p)=>Math.max(m,ms(p.t)),0);if(top)st.set('tn-seen',Math.max(top,st.get('tn-seen',0)))}
 if(!prevSeen)markSeen();
 
+/* ---------- מתווך (Vercel): קריאה ישירה מטלגרם תוך שניות ----------
+   אם הכתובת חסומה או לא עונה, האפליקציה עוברת לבד לעדכון דרך GitHub. */
+const PROXY='https://telegram-news-lovat.vercel.app/api/tg';
+let live=null; // null = לא נבדק, true = עובד, false = חסום
+const withTimeout=(p,t)=>Promise.race([p,new Promise((_,j)=>setTimeout(()=>j(new Error('timeout')),t))]);
+async function pget(c,before){const r=await withTimeout(fetch(PROXY+'?c='+encodeURIComponent(c)+(before?'&before='+before:'')+'&t='+Date.now(),{cache:'no-store'}),12000);if(!r.ok)throw new Error('http '+r.status);return r.text()}
+async function probe(){try{const r=await withTimeout(fetch(PROXY+'?t='+Date.now(),{cache:'no-store'}),5000);live=r.ok}catch(e){live=false}return live}
+function parseTg(u,html){const doc=new DOMParser().parseFromString(html,'text/html');
+  const title=(doc.querySelector('.tgme_channel_info_header_title span')||doc.querySelector('.tgme_channel_info_header_title'))?.textContent.trim()||u;
+  const posts=[];doc.querySelectorAll('.tgme_widget_message[data-post]').forEach(el=>{
+    const id=el.getAttribute('data-post'),tm=el.querySelector('time[datetime]');if(!tm||!id.includes('/'))return;
+    const te=el.querySelector('.tgme_widget_message_bubble > .tgme_widget_message_text')||el.querySelector('.js-message_text');
+    let x='';if(te){const c=te.cloneNode(true);c.querySelectorAll('br').forEach(b=>b.replaceWith('\n'));x=c.textContent.trim();if(x.length>1200)x=x.slice(0,1200).replace(/\s+\S*$/,'')+'…'}
+    const m=!!el.querySelector('.tgme_widget_message_photo_wrap,.tgme_widget_message_video_player,.tgme_widget_message_roundvideo_player');
+    if(!x&&!m)return;posts.push({c:u,id,t:tm.getAttribute('datetime'),x,m})});
+  return{info:{u,n:title,s:''},posts}}
+const pnum=p=>+p.id.split('/')[1];
+/* זיהוי ידיעות גדולות: אותה ידיעה בכמה ערוצים (כמו בעדכון של GitHub) */
+const STOPW=new Set(`של את על עם זה זו זאת גם לא כי אם או הוא היא הם הן אני אנחנו יש אין כל כך רק עוד כבר היום אחרי לפני בין תוך מול אל לו לה להם שלא מה מי איך למה כמו יותר פי בו בה הזה הזאת היה היו יהיה בעקבות לפי נגד אצל עד אמר אמרה נמסר דיווח מדווח עכשיו כעת חדשות מבזק ערוץ טלגרם הצטרפו קישור למבזק המלא שלנו`.split(/\s+/));
+function toks(t){const out=new Set();for(let w of (t.match(/[֐-׿A-Za-z0-9]+/g)||[])){w=w.replace(NIQ,'').toLowerCase();for(let k=0;k<2;k++)if(w.length>=5&&'והבלמשכ'.includes(w[0]))w=w.slice(1);if(w.length>=3&&!STOPW.has(w)&&!/^\d+$/.test(w))out.add(w)}return out}
+function findStories(feed){const now=Date.now(),R=feed.filter(p=>p.x&&now-ms(p.t)<36*36e5);
+  let T=R.map(p=>toks(p.x.slice(0,400)));const df={};T.forEach(s=>s.forEach(w=>df[w]=(df[w]||0)+1));const lim=Math.max(4,R.length*.12);
+  T=T.map(s=>new Set([...s].filter(w=>df[w]<=lim)));const par=R.map((_,i)=>i);const f=i=>{while(par[i]!==i){par[i]=par[par[i]];i=par[i]}return i};
+  for(let i=0;i<R.length;i++)for(let j=i+1;j<R.length;j++){const a=R[i],b=R[j];if(a.c===b.c||Math.abs(ms(a.t)-ms(b.t))>6*36e5)continue;
+    let c=0;for(const w of T[i])if(T[j].has(w))c++;const sm=Math.min(T[i].size,T[j].size)||1;if(c>=3&&c/sm>=.25)par[f(i)]=f(j)}
+  const G={};R.forEach((p,i)=>(G[f(i)]??=[]).push(p));
+  return Object.values(G).filter(g=>new Set(g.map(p=>p.c)).size>=2).map(g=>{g.sort((a,b)=>ms(b.t)-ms(a.t));return{ids:g.map(p=>p.id),n:new Set(g.map(p=>p.c)).size,t:g[0].t}})
+    .sort((a,b)=>b.n-a.n||ms(b.t)-ms(a.t)).slice(0,80)}
+async function liveUpdate(){
+  const list=[...new Set(D.channels.map(c=>c.u).filter(u=>!pend.del.includes(u)).concat(pend.add))];
+  const cutoff=Date.now()-40*36e5;let ok=0;const infos=[],feed=[];
+  await Promise.all(list.map(async u=>{const known=D.feed.filter(p=>p.c===u),top=known.reduce((m,p)=>Math.max(m,pnum(p)),0);
+    try{const first=parseTg(u,await pget(u));let posts=first.posts;
+      for(let k=0;k<3&&posts.length;k++){const low=Math.min(...posts.map(pnum)),old=Math.min(...posts.map(p=>ms(p.t)));
+        if((top&&low<=top+1)||old<cutoff||(!top&&k>=1))break;const more=parseTg(u,await pget(u,low)).posts.filter(p=>!posts.some(q=>q.id===p.id));if(!more.length)break;posts=posts.concat(more)}
+      const M=new Map(known.map(p=>[p.id,p]));posts.forEach(p=>M.set(p.id,p));
+      infos.push(first.info);feed.push(...[...M.values()].filter(p=>ms(p.t)>=cutoff));ok++}
+    catch(e){const old=D.channels.find(c=>c.u===u);infos.push(old||{u,n:u,s:'',err:true});feed.push(...known.filter(p=>ms(p.t)>=cutoff))}}));
+  if(!ok)return false;
+  infos.sort((a,b)=>list.indexOf(a.u)-list.indexOf(b.u));feed.sort((a,b)=>ms(b.t)-ms(a.t));
+  D={updated:new Date().toISOString(),repo:D.repo,channels:infos,feed,stories:findStories(feed),live:true};
+  try{localStorage.setItem('tn-data',JSON.stringify(D))}catch(e){}
+  render();if($('dlg').open)renderSettings();return true}
+
 /* ---------- עדכון ----------
    GitHub לא תמיד מריץ את העדכון המתוזמן בזמן. לכן כשהמידע ישן, האפליקציה מבקשת עדכון בעצמה,
    עוקבת אחרי ההרצה ב־GitHub עד שהיא מסתיימת, ורק אז טוענת את הנתונים החדשים. */
-async function refresh(){try{const r=await fetch('data.json?'+Date.now(),{cache:'no-store'});if(r.ok){const n=await r.json();if(n.updated!==D.updated){D=n;render();if($('dlg').open)renderSettings();return true}}}catch(e){}return false}
+async function refresh(){try{const r=await fetch('data.json?'+Date.now(),{cache:'no-store'});if(r.ok){const n=await r.json();if(n.updated!==D.updated&&ms(n.updated)>ms(D.updated)){D=n;render();if($('dlg').open)renderSettings();return true}}}catch(e){}return false}
+let stage='';
 async function update(force){
   if(busy||resting()||document.hidden)return;
+  if(live!==false){busy=true;stage='טוען…';updTxt();
+    if(live===null)await probe();
+    if(live&&await liveUpdate().catch(()=>false)){busy=false;stage='';render();return}
+    live=false;busy=false;stage=''}
   if(!force&&Date.now()-ms(D.updated)<10*60000)return;
-  if(!st.get('tn-tok','')){busy=true;updTxt();await refresh();busy=false;updTxt();return}
-  if(!force&&Date.now()-st.get('tn-kick',0)<3*60000)return;
-  busy=true;updTxt();const before=D.updated,since=Date.now();st.set('tn-kick',since);
+  busy=true;stage='טוען…';updTxt();
+  if(await refresh()&&!force&&Date.now()-ms(D.updated)<10*60000){busy=false;stage='';render();return}
+  if(!st.get('tn-tok','')||(!force&&Date.now()-st.get('tn-kick',0)<3*60000)){
+    /* בלי מפתח, או שכבר ביקשנו עדכון ממש עכשיו: רק בודקים שוב בעוד רגע */
+    for(let i=0;i<12;i++){await sleep(10000);if(await refresh())break}
+    busy=false;stage='';render();return}
+  const since=Date.now();st.set('tn-kick',since);stage='מבקש עדכון…';updTxt();
   try{await gh('/actions/workflows/update.yml/dispatches',{method:'POST',body:JSON.stringify({ref:'main'})});
-    let done=false;
-    for(let i=0;i<54&&!done;i++){await sleep(10000);
+    let done=false,finished=0;
+    for(let i=0;i<80&&!done;i++){await sleep(finished?5000:8000);
       if(await refresh()){done=true;break}
+      if(finished){if(Date.now()-finished>150000)break;continue}
       try{const r=await gh('/actions/workflows/update.yml/runs?per_page=5');
         const run=(r.workflow_runs||[]).find(x=>ms(x.created_at)>=since-90000);
-        if(run&&run.status==='completed'){
-          for(let j=0;j<6;j++){if(await refresh()){done=true;break}await sleep(8000)}
-          if(!done&&run.conclusion==='success'&&D.updated===before){location.reload();return}
-          break}}catch(e){}}
+        if(run){stage=run.status==='queued'||run.status==='waiting'||run.status==='pending'?'ממתין בתור…':run.status==='completed'?'טוען…':'מעדכן…';updTxt();
+          if(run.status==='completed'){if(run.conclusion!=='success')break;finished=Date.now()}}}catch(e){}}
+    if(!done&&finished){location.replace(location.pathname+'?r='+Date.now());return}
   }catch(e){}
-  busy=false;render()}
+  busy=false;stage='';render()}
 setInterval(()=>{if(!resting()&&!busy)refresh()},120000);
 setInterval(()=>update(),60000);
+setInterval(()=>{if(live===false)live=null},10*60000);
 setInterval(updTxt,30000);
 setInterval(render,5*60000);
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden){markSeen();return}
-  prevSeen=st.get('tn-seen',prevSeen);render();if(!resting())refresh().then(()=>update())});
+  prevSeen=st.get('tn-seen',prevSeen);render();if(!resting()){if(live===false)live=null;update()}});
 window.addEventListener('pagehide',markSeen);
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 render();
 update();
+if(!busy)refresh();
 }
 </script>
 </body>

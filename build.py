@@ -103,15 +103,33 @@ def stories(feed):
 
 channels, feed = [], []
 cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=KEEP_HOURS)
+
+# הנתונים מהעדכון הקודם: מושכים רק מה שחדש ומצרפים אליהם, כדי שכל עדכון יהיה מהיר
+prev = {}
+try:
+    owner, name = REPO.split("/")
+    with urllib.request.urlopen(f"https://{owner.lower()}.github.io/{name}/data.json?{int(time.time())}", timeout=20) as r:
+        prev = json.loads(r.read().decode("utf-8"))
+except Exception as e:
+    print("אין נתונים קודמים, מושך הכול מחדש:", e)
+prev_posts, prev_info = {}, {c["u"]: c for c in prev.get("channels", []) if not c.get("err")}
+for p in prev.get("feed", []):
+    prev_posts.setdefault(p["c"], []).append(p)
+
+num = lambda p: int(p["id"].split("/")[1])
 for u in CHANNELS:
+    known = prev_posts.get(u, [])
+    top_known = max((num(p) for p in known), default=None)
     try:
         info, posts = parse(u, fetch(u))
         seen = {p["id"] for p in posts}
         for _ in range(PAGES - 1):
             if not posts or ts(min(posts, key=lambda p: p["t"])) < cutoff:
                 break
-            low = min(int(p["id"].split("/")[1]) for p in posts)
-            time.sleep(0.4)
+            low = min(num(p) for p in posts)
+            if top_known is not None and low <= top_known + 1:
+                break          # אין פער: כל השאר כבר נמצא בנתונים הקודמים
+            time.sleep(0.3)
             try:
                 _, more = parse(u, fetch(u, low))
             except Exception:
@@ -121,11 +139,17 @@ for u in CHANNELS:
                 break
             seen |= {p["id"] for p in more}
             posts += more
+        merged = {p["id"]: p for p in known}
+        merged.update({p["id"]: p for p in posts})
         channels.append(info)
-        feed += [p for p in posts if ts(p) >= cutoff]
+        feed += [p for p in merged.values() if ts(p) >= cutoff]
     except Exception as e:
         print("שגיאה בערוץ", u, e)
-        channels.append({"u": u, "n": u, "s": "", "err": True})
+        if known:
+            channels.append(prev_info.get(u, {"u": u, "n": u, "s": ""}))
+            feed += [p for p in known if ts(p) >= cutoff]
+        else:
+            channels.append({"u": u, "n": u, "s": "", "err": True})
 
 feed.sort(key=lambda p: p["t"], reverse=True)
 data = {"updated": datetime.datetime.now(datetime.timezone.utc).isoformat(), "repo": REPO,
